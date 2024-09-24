@@ -10,9 +10,10 @@ try {
     class Application
     {
         public function __construct(
-            public string  $pageTitle,
-            public string  $view,
-            public Request $request,
+            public string           $pageTitle,
+            public string           $view,
+            public readonly Request $request,
+            public readonly Router  $router = new Router(),
         )
         {
         }
@@ -50,9 +51,6 @@ try {
             <a href="{$this->router->getRouteFromName(
                 'index'
             )->path}">Index</a>
-            <a href="{$this->router->getRouteFromName(
-                'jerseys'
-            )->path}">Jerseys</a>
         </div>
     </header>
     <div class="body">{$this->view}</div>
@@ -80,7 +78,8 @@ HTML;
         private function __construct(
             public array $get,
             public array $post,
-            public array $cookies
+            public array $cookies,
+            public array $server
         )
         {
         }
@@ -91,8 +90,51 @@ HTML;
                 $_GET,
                 $_POST,
                 $_COOKIE,
+                $_SERVER
             );
         }
+    }
+
+    readonly class Router
+    {
+        public function getRouteFromName(string $name): Route
+        {
+            $classes = array_filter(
+                get_declared_classes(),
+                fn (string $class) => is_subclass_of($class, AbstractController::class)
+            );
+
+            foreach ($classes as $class) {
+                $reflectedClass = new ReflectionClass($class);
+                $reflectedAttributes = $reflectedClass->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
+                foreach($reflectedAttributes as $reflectedAttribute) {
+                    $route = $reflectedAttribute->newInstance();
+                    if ($route->name === $name) {
+                        return $route;
+                    }
+                }
+            }
+            throw new Exception("No route found for name `{$name}`", code: 404);
+        }
+    }
+
+    /**
+     * ATTRIBUTES
+     */
+
+    #[Attribute(Attribute::TARGET_CLASS)]
+    class Route {
+        public function __construct(
+            public string $path,
+            public string $name
+        ) {}
+    }
+
+    class AbstractController {}
+
+    #[Route(path: '/', name: 'index')]
+    class HomeController extends AbstractController
+    {
     }
 
     $app = new Application(
