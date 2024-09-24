@@ -34,12 +34,12 @@ try {
         {
             $controllers = array_filter(
                 get_declared_classes(),
-                fn (string $class) => is_subclass_of($class, AbstractController::class)
+                fn(string $class) => is_subclass_of($class, AbstractController::class)
             );
 
             $nav = '';
 
-            foreach($controllers as $controllerClass) {
+            foreach ($controllers as $controllerClass) {
                 /** @var AbstractController $controller */
                 $controller = new $controllerClass();
                 $nav .= sprintf(
@@ -123,13 +123,13 @@ HTML;
         {
             $classes = array_filter(
                 get_declared_classes(),
-                fn (string $class) => is_subclass_of($class, AbstractController::class)
+                fn(string $class) => is_subclass_of($class, AbstractController::class)
             );
 
             foreach ($classes as $class) {
                 $reflectedClass = new ReflectionClass($class);
                 $reflectedAttributes = $reflectedClass->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
-                foreach($reflectedAttributes as $reflectedAttribute) {
+                foreach ($reflectedAttributes as $reflectedAttribute) {
                     $route = $reflectedAttribute->newInstance();
                     if (!$route instanceof Route) {
                         throw new Exception(sprintf('Expected `%s`, got `%s`', Route::class, get_class($reflectedAttribute)));
@@ -141,35 +141,40 @@ HTML;
             }
             throw new Exception("No route found ", code: 404);
         }
+
         public function getRouteFromRequest(Request $request): AbstractController
         {
-            return $this->getRouteFromFn(fn (Route $route) => $route->path === $request->getUri());
+            return $this->getRouteFromFn(fn(Route $route) => $route->path === $request->getUri());
         }
 
         public function getRouteFromName(string $name): AbstractController
         {
-            return $this->getRouteFromFn(fn (Route $route) => $route->name === $name);
+            return $this->getRouteFromFn(fn(Route $route) => $route->name === $name);
         }
     }
 
     /**
      * ATTRIBUTES
      */
-
-    #[Attribute(Attribute::TARGET_CLASS)]
-    class Route {
+    #[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_FUNCTION)]
+    class Route
+    {
         public function __construct(
             public string $path,
             public string $name
-        ) {}
+        )
+        {
+        }
     }
 
-    abstract class AbstractController {
+    abstract class AbstractController
+    {
         abstract public function getView(): string;
+
         public function getRoute(): Route
         {
             $reflection = new ReflectionClass($this);
-            foreach($reflection->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $reflectedAttribute) {
+            foreach ($reflection->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $reflectedAttribute) {
                 return $reflectedAttribute->newInstance();
             }
 
@@ -212,7 +217,7 @@ HTML;
 
     $app->render();
 
-} catch (\Throwable $e) {
+} catch (Throwable $e) {
     echo "<h1>{$e->getMessage()}</h1>";
     echo '<pre>';
     print_r(get_defined_vars());
