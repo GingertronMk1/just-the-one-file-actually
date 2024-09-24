@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 error_reporting(E_ALL | E_STRICT);
 
+
+
 try {
 
-
+    throw new Exception;
     class Application
     {
         public function __construct(
@@ -26,6 +28,11 @@ try {
         public function getStyle(): string
         {
             return '';
+        }
+
+        public function getView(): string
+        {
+            return $this->router->getRouteFromRequest($this->request)->path;
         }
 
         public function render(): void
@@ -53,7 +60,7 @@ try {
             )->path}">Index</a>
         </div>
     </header>
-    <div class="body">{$this->view}</div>
+    <div class="body">{$this->getView()}</div>
     <footer>
     </footer>
     </body>
@@ -84,6 +91,11 @@ HTML;
         {
         }
 
+        public function getUri(): string
+        {
+            return $this->server['REQUEST_URI'] ?? '/';
+        }
+
         public static function fromSuperGlobals(): self
         {
             return new self(
@@ -97,7 +109,7 @@ HTML;
 
     readonly class Router
     {
-        public function getRouteFromName(string $name): Route
+        private function getRouteFromFn(callable $fn): Route
         {
             $classes = array_filter(
                 get_declared_classes(),
@@ -112,12 +124,21 @@ HTML;
                     if (!$route instanceof Route) {
                         throw new Exception(sprintf('Expected `%s`, got `%s`', Route::class, get_class($reflectedAttribute)));
                     }
-                    if ($route->name === $name) {
+                    if ($fn($route)) {
                         return $route;
                     }
                 }
             }
-            throw new Exception("No route found for name `{$name}`", code: 404);
+            throw new Exception("No route found ", code: 404);
+        }
+        public function getRouteFromRequest(Request $request): Route
+        {
+            return $this->getRouteFromFn(fn (Route $route) => $route->path = $request->getUri());
+        }
+
+        public function getRouteFromName(string $name): Route
+        {
+            return $this->getRouteFromFn(fn (Route $route) => $route->name === $name);
         }
     }
 
