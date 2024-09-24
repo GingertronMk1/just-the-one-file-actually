@@ -109,6 +109,9 @@ HTML;
                 $reflectedAttributes = $reflectedClass->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF);
                 foreach($reflectedAttributes as $reflectedAttribute) {
                     $route = $reflectedAttribute->newInstance();
+                    if (!$route instanceof Route) {
+                        throw new Exception(sprintf('Expected `%s`, got `%s`', Route::class, get_class($reflectedAttribute)));
+                    }
                     if ($route->name === $name) {
                         return $route;
                     }
