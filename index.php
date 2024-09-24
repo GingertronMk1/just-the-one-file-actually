@@ -4,16 +4,11 @@ declare(strict_types=1);
 
 error_reporting(E_ALL | E_STRICT);
 
-
-
 try {
-
-    throw new Exception;
     class Application
     {
         public function __construct(
             public string           $pageTitle,
-            public string           $view,
             public readonly Request $request,
             public readonly Router  $router = new Router(),
         )
@@ -32,11 +27,28 @@ try {
 
         public function getView(): string
         {
-            return $this->router->getRouteFromRequest($this->request)->path;
+            return $this->router->getRouteFromRequest($this->request)->getView();
         }
 
         public function render(): void
         {
+            $controllers = array_filter(
+                get_declared_classes(),
+                fn (string $class) => is_subclass_of($class, AbstractController::class)
+            );
+
+            $nav = '';
+
+            foreach($controllers as $controllerClass) {
+                /** @var AbstractController $controller */
+                $controller = new $controllerClass();
+                $nav .= sprintf(
+                    '<a href="%s">%s</a>',
+                    $controller->getPath(),
+                    ucfirst($controller->getName())
+                );
+            }
+
             ob_start();
             echo <<<HTML
 
@@ -55,9 +67,7 @@ try {
     <header class="header">
         <h1>{$this->pageTitle}</h1>
         <div class="header__links">
-            <a href="{$this->router->getRouteFromName(
-                'index'
-            )->path}">Index</a>
+            {$nav}
         </div>
     </header>
     <div class="body">{$this->getView()}</div>
@@ -109,7 +119,7 @@ HTML;
 
     readonly class Router
     {
-        private function getRouteFromFn(callable $fn): Route
+        private function getRouteFromFn(callable $fn): AbstractController
         {
             $classes = array_filter(
                 get_declared_classes(),
@@ -125,18 +135,18 @@ HTML;
                         throw new Exception(sprintf('Expected `%s`, got `%s`', Route::class, get_class($reflectedAttribute)));
                     }
                     if ($fn($route)) {
-                        return $route;
+                        return $reflectedClass->newInstance();
                     }
                 }
             }
             throw new Exception("No route found ", code: 404);
         }
-        public function getRouteFromRequest(Request $request): Route
+        public function getRouteFromRequest(Request $request): AbstractController
         {
-            return $this->getRouteFromFn(fn (Route $route) => $route->path = $request->getUri());
+            return $this->getRouteFromFn(fn (Route $route) => $route->path === $request->getUri());
         }
 
-        public function getRouteFromName(string $name): Route
+        public function getRouteFromName(string $name): AbstractController
         {
             return $this->getRouteFromFn(fn (Route $route) => $route->name === $name);
         }
@@ -154,16 +164,49 @@ HTML;
         ) {}
     }
 
-    class AbstractController {}
+    abstract class AbstractController {
+        abstract public function getView(): string;
+        public function getRoute(): Route
+        {
+            $reflection = new ReflectionClass($this);
+            foreach($reflection->getAttributes(Route::class, ReflectionAttribute::IS_INSTANCEOF) as $reflectedAttribute) {
+                return $reflectedAttribute->newInstance();
+            }
+
+            throw new ErrorException('No route found for ' . static::class);
+        }
+
+        public function getPath(): string
+        {
+            return $this->getRoute()->path;
+        }
+
+        public function getName(): string
+        {
+            return $this->getRoute()->name;
+        }
+    }
 
     #[Route(path: '/', name: 'index')]
     class HomeController extends AbstractController
     {
+        public function getView(): string
+        {
+            return 'Home Controller';
+        }
+    }
+
+    #[Route(path: '/test', name: 'test')]
+    class TestController extends AbstractController
+    {
+        public function getView(): string
+        {
+            return 'Test Controller';
+        }
     }
 
     $app = new Application(
         'Farts',
-        '',
         Request::fromSuperGlobals(),
     );
 
