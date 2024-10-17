@@ -167,10 +167,17 @@ HTML;
         }
     }
 
+    /**
+     * CONTROLLERS
+     */
     abstract class AbstractController
     {
         abstract public function getView(): string;
 
+        public function getStyles(): string
+        {
+            return '';
+        }
         public function getRoute(): Route
         {
             $reflection = new ReflectionClass($this);
@@ -197,8 +204,32 @@ HTML;
     {
         public function getView(): string
         {
-            return 'Home Controller';
+            $combos = [];
+            for ($i = 0; $i < 16; $i++) {
+                for ($ii = 0; $ii < $i; $ii++) {
+                    for ($iii = 0; $iii < $ii; $iii++) {
+                        $combos[] = array_map(
+                            fn (int $n) => dechex($n * 16),
+                            [$i, $ii, $iii]
+                        );
+                    }
+                }
+            }
+            $elems = '';
+            foreach ($combos as $comboY) {
+                foreach ($combos as $comboX) {
+                    [$x1, $x2, $x3] = $comboX;
+                    [$y1, $y2, $y3] = $comboY;
+                    $colour = '#'.$x1.$y1.$x2.$y2.$x3.$y3;
+                    $elems .= "<span style='color: {$colour}; background-color: {$colour}'>X</span>";
+                }
+                $elems .= PHP_EOL;
+            }
+
+            return $elems;
         }
+
+
     }
 
     #[Route(path: '/test', name: 'test')]
@@ -211,7 +242,7 @@ HTML;
     }
 
     $app = new Application(
-        'Farts',
+        'Test',
         Request::fromSuperGlobals(),
     );
 
